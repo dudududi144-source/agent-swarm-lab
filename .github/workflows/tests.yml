@@ -1,0 +1,31 @@
+name: Agent Swarm Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run tests
+        run: python test.py
+      - name: Validate agents
+        run: |
+          python -c "import agents.agent_1_analyst"
+          python -c "import agents.agent_2_architect"
+          python -c "import agents.agent_3_builder"
+          python -c "import agents.agent_4_reviewer"
+          python -c "import agents.agent_5_optimizer"
+          python -c "import agents.agent_6_deployer"
+          echo 'All agents import successfully'
