@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Swarm Lab</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,sans-serif;background:#0f0f0f;color:#e0e0e0;padding:20px}
+.header{text-align:center;margin-bottom:24px}
+.header h1{font-size:22px;font-weight:700}
+.header p{font-size:12px;color:#888;margin-top:4px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:20px}
+.card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:14px}
+.card .label{font-size:10px;color:#888;text-transform:uppercase}
+.card .value{font-size:20px;font-weight:700;margin-top:2px}
+.card .value.blue{color:#3b82f6}
+.card .value.green{color:#22c55e}
+.pipeline{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:16px;margin-bottom:20px}
+.pipeline h3{font-size:13px;margin-bottom:12px}
+.flow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.node{background:#252525;border:1px solid #333;border-radius:6px;padding:8px 12px;font-size:11px;text-align:center}
+.node.active{border-color:#3b82f6;background:#1e3a5f}
+.node.done{border-color:#22c55e;background:#1a3a2a}
+.arrow{color:#555}
+.controls{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.btn{background:#252525;border:1px solid #333;color:#e0e0e0;padding:8px 14px;border-radius:6px;font-size:11px;cursor:pointer}
+.btn.primary{background:#3b82f6;border-color:#3b82f6;color:#fff}
+.btn.danger{background:#dc2626;border-color:#dc2626;color:#fff}
+.idea-box{display:flex;gap:8px;margin-bottom:20px}
+.idea-box input{flex:1;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:6px;padding:10px;color:#e0e0e0;font-size:12px;outline:none}
+.history{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:16px}
+.history h3{font-size:13px;margin-bottom:10px}
+.h-item{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #222;font-size:11px}
+.h-item:last-child{border-bottom:none}
+.status-bar{display:flex;align-items:center;gap:8px;margin-bottom:20px;padding:10px 14px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:6px;font-size:11px}
+.dot{width:8px;height:8px;border-radius:50%}
+.dot.on{background:#22c55e}
+.dot.run{background:#f59e0b;animation:pulse 1s infinite}
+.dot.off{background:#dc2626}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+</style>
+</head>
+<body>
+<div class="header"><h1>Agent Swarm Lab</h1><p>Infinite Improvement Loop</p></div>
+<div class="status-bar"><div class="dot" id="dot"></div><span id="statusText">Connecting...</span><span style="margin-left:auto" id="lastUpdate"></span></div>
+<div class="idea-box"><input id="ideaInput" placeholder="Enter project idea..."><button class="btn primary" onclick="setIdea()">Set Idea</button></div>
+<div class="controls"><button class="btn primary" onclick="trigger()">Trigger Next</button><button class="btn" onclick="refresh()">Refresh</button><button class="btn danger" onclick="resetPipeline()">Reset</button></div>
+<div class="grid">
+<div class="card"><div class="label">Iteration</div><div class="value blue" id="iter">0</div></div>
+<div class="card"><div class="label">Current Agent</div><div class="value" id="agent">-</div></div>
+<div class="card"><div class="label">Status</div><div class="value" id="pstatus">-</div></div>
+<div class="card"><div class="label">History</div><div class="value green" id="hcount">0</div></div>
+</div>
+<div class="pipeline"><h3>Pipeline</h3><div class="flow" id="flow"></div></div>
+<div class="history"><h3>Recent Activity</h3><div id="hlist"></div></div>
+<script>
+var API="https://agent-swarm-cron.rabotatony.workers.dev";
+var agents=["analyst","architect","builder","reviewer","optimizer","deployer"];
+function renderFlow(current,st){
+var el=document.getElementById("flow");el.innerHTML="";
+agents.forEach(function(a,i){
+var cls="node";
+if(a===current)cls+=st==="running"?" active":" done";
+else if(agents.indexOf(a)<agents.indexOf(current))cls+=" done";
+el.innerHTML+="<div class=\""+cls+"\">"+a+"</div>";
+if(i<agents.length-1)el.innerHTML+="<span class=\"arrow\">-></span>";
+});}
+async function refresh(){
+try{
+var r=await fetch(API+"/api/status");
+var d=await r.json();
+document.getElementById("dot").className="dot "+(d.status==="running"?"run":d.error?"off":"on");
+document.getElementById("statusText").textContent=d.error?"Error":"Pipeline: "+(d.status||"idle");
+document.getElementById("lastUpdate").textContent=new Date().toLocaleTimeString();
+document.getElementById("iter").textContent=d.iteration||0;
+document.getElementById("agent").textContent=d.current_agent||"-";
+document.getElementById("pstatus").textContent=d.status||"idle";
+document.getElementById("hcount").textContent=(d.history||[]).length;
+renderFlow(d.current_agent,d.status);
+var h=d.history||[];
+var hl=document.getElementById("hlist");
+if(!h.length){hl.innerHTML="<div style=\"color:#888;font-size:11px\">No activity</div>";}
+else{
+var html="";
+for(var i=Math.max(0,h.length-10);i<h.length;i++){
+html+="<div class=\"h-item\"><span style=\"color:#3b82f6\">"+h[i].agent+"</span><span>"+(h[i].status||"")+"</span><span style=\"color:#888\">"+(h[i].timestamp||"")+"</span></div>";
+}
+hl.innerHTML=html;
+}
+}catch(e){
+document.getElementById("dot").className="dot off";
+document.getElementById("statusText").textContent="Connection failed";
+}}
+async function setIdea(){
+var idea=document.getElementById("ideaInput").value.trim();
+if(!idea){alert("Enter idea first");return;}
+try{
+var r=await fetch(API+"/api/idea",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({idea:idea})});
+var d=await r.json();
+alert("Idea set!");refresh();
+}catch(e){alert(e.message)}
+}
+async function trigger(){
+try{
+var r=await fetch(API+"/api/trigger",{method:"POST"});
+var d=await r.json();
+alert("Triggered: "+(d.agent||"unknown"));refresh();
+}catch(e){alert(e.message)}
+}
+async function resetPipeline(){
+if(!confirm("Reset pipeline?"))return;
+try{
+var r=await fetch(API+"/api/reset",{method:"POST"});
+alert("Reset done");refresh();
+}catch(e){alert(e.message)}
+}
+refresh();setInterval(refresh,10000);
+</script>
+</body>
+</html>
