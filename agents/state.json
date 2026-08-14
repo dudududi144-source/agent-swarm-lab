@@ -1,0 +1,20 @@
+{
+  "version": "1.0",
+  "current_agent": "analyst",
+  "iteration": 0,
+  "status": "idle",
+  "project_idea": "",
+  "analysis": "",
+  "architecture": "",
+  "code": "",
+  "review": "",
+  "optimizations": "",
+  "deployment": "",
+  "history": [],
+  "config": {
+    "max_iterations": 100,
+    "delay_between_agents": 3,
+    "max_api_calls_per_agent": 10,
+    "quality_threshold": 8
+  }
+}
